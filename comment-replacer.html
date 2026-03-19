@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comment Replacer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --surface3: #e8e7e0;
+    --border: #dddbd3;
+    --border2: #c8c6bc;
+    --accent: #2563eb;
+    --accent-light: #eff4ff;
+    --accent-border: #bfcfff;
+    --warn: #b45309;
+    --warn-light: #fffbeb;
+    --warn-border: #fcd34d;
+    --danger: #dc2626;
+    --danger-light: #fff5f5;
+    --success: #16a34a;
+    --success-light: #f0fdf4;
+    --success-border: #bbf7d0;
+    --text: #1c1b18;
+    --text-mid: #4a4840;
+    --text-dim: #8a8880;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 52px 24px 80px;
+  }
+
+  .container { width: 100%; max-width: 880px; }
+
+  /* Header */
+  header { text-align: center; margin-bottom: 52px; }
+
+  .logo-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-light);
+    border: 1px solid var(--accent-border);
+    padding: 4px 12px; border-radius: 100px; margin-bottom: 22px;
+  }
+
+  h1 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(38px, 6vw, 62px);
+    font-weight: 400; line-height: 1.08; letter-spacing: -0.02em;
+    color: var(--text); margin-bottom: 14px;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+
+  .subtitle {
+    color: var(--text-dim); font-size: 15px; line-height: 1.65;
+    max-width: 480px; margin: 0 auto;
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .card-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-dim);
+    margin-bottom: 18px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .step-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: var(--accent); flex-shrink: 0;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 1.5px dashed var(--border2); border-radius: 8px;
+    padding: 44px 24px; text-align: center; cursor: pointer;
+    transition: all 0.18s ease; position: relative; background: var(--surface2);
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent); background: var(--accent-light);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 32px; margin-bottom: 10px; display: block; }
+  .drop-text { font-size: 15px; font-weight: 600; margin-bottom: 5px; color: var(--text); }
+  .drop-sub { font-size: 12px; color: var(--text-dim); }
+
+  .file-info {
+    display: none; align-items: center; gap: 10px;
+    padding: 12px 16px; background: var(--accent-light);
+    border: 1px solid var(--accent-border); border-radius: 7px; margin-top: 14px;
+  }
+  .file-info.visible { display: flex; }
+  .file-name { font-size: 13px; font-weight: 500; color: var(--accent); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { font-size: 11px; color: var(--text-dim); }
+
+  /* Preview */
+  .preview-section { display: none; }
+  .preview-section.visible { display: block; }
+
+  .badge {
+    font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 100px;
+    background: var(--accent-light); color: var(--accent);
+    border: 1px solid var(--accent-border);
+  }
+
+  /* Toolbar */
+  .table-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .toolbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px; }
+  .toolbar-right { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .select-all-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--text-mid); cursor: pointer; user-select: none;
+    font-weight: 500;
+  }
+
+  .filter-btn {
+    font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500;
+    padding: 4px 12px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-dim); cursor: pointer;
+    transition: all 0.14s ease;
+  }
+  .filter-btn:hover { border-color: var(--border2); color: var(--text-mid); }
+  .filter-btn.f-active-all { border-color: var(--text-mid); color: var(--text); background: var(--surface2); }
+  .filter-btn.f-active-auto { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .filter-btn.f-active-manual { border-color: var(--warn); color: var(--warn); background: var(--warn-light); }
+
+  /* Table */
+  .comment-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .comment-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+  .comment-table th {
+    text-align: left; padding: 9px 14px;
+    background: var(--surface2); color: var(--text-dim);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+    white-space: nowrap; border-bottom: 1px solid var(--border);
+  }
+  .comment-table th:first-child { width: 40px; }
+
+  .comment-table td {
+    padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .comment-table tbody tr:last-child td { border-bottom: none; }
+  .comment-table tbody tr:hover { background: var(--surface2); }
+  .comment-table tr.row-manual { background: var(--warn-light); }
+  .comment-table tr.row-manual:hover { background: #fef8e1; }
+  .comment-table tr.row-manual .original-text,
+  .comment-table tr.row-manual .comment-text { opacity: 0.45; }
+
+  /* Checkbox */
+  .cb-wrap { display: flex; align-items: center; justify-content: center; }
+  .cb-wrap input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 15px; height: 15px; border: 1.5px solid var(--border2);
+    border-radius: 3px; background: var(--surface);
+    cursor: pointer; position: relative; transition: all 0.14s; flex-shrink: 0;
+  }
+  .cb-wrap input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+  .cb-wrap input[type="checkbox"]:checked::after {
+    content: ''; position: absolute; top: 2px; left: 4px;
+    width: 4px; height: 7px; border: 1.5px solid #fff;
+    border-top: none; border-left: none; transform: rotate(45deg);
+  }
+  .cb-wrap input[type="checkbox"]:indeterminate { background: var(--accent-light); border-color: var(--accent); }
+  .cb-wrap input[type="checkbox"]:indeterminate::after {
+    content: ''; position: absolute; top: 5px; left: 2px;
+    width: 9px; height: 1.5px; background: var(--accent); border: none; transform: none;
+  }
+
+  .original-text { color: var(--danger); word-break: break-word; font-size: 13px; }
+  .arrow-cell { color: var(--text-dim); text-align: center; width: 28px; font-size: 12px; }
+  .comment-text { color: var(--success); word-break: break-word; font-size: 13px; }
+
+  /* Status pill */
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 100px;
+    white-space: nowrap; cursor: pointer; transition: all 0.14s; user-select: none;
+  }
+  .pill-auto {
+    background: var(--success-light); color: var(--success);
+    border: 1px solid var(--success-border);
+  }
+  .pill-auto:hover { background: #dcfce7; }
+  .pill-manual {
+    background: var(--warn-light); color: var(--warn);
+    border: 1px solid var(--warn-border);
+  }
+  .pill-manual:hover { background: #fef3c7; }
+
+  .status-col { width: 130px; }
+
+  /* Summary */
+  .selection-summary {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 14px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 7px;
+    margin-top: 12px; font-size: 12px; color: var(--text-mid);
+  }
+  .sum-item { display: flex; align-items: center; gap: 6px; }
+  .sum-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .sum-dot.green { background: var(--success); }
+  .sum-dot.yellow { background: var(--warn); }
+  .sum-sep { color: var(--border2); }
+
+  .empty-state {
+    text-align: center; padding: 36px; color: var(--text-dim); font-size: 13px;
+  }
+  .empty-icon { font-size: 28px; margin-bottom: 8px; display: block; opacity: 0.5; }
+
+  /* Info note */
+  .info-note {
+    font-size: 12px; color: var(--text-mid); padding: 10px 14px;
+    background: var(--surface2); border-left: 2.5px solid var(--border2);
+    border-radius: 0 6px 6px 0; margin-top: 12px; line-height: 1.7;
+  }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 22px; border-radius: 7px; font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer; border: none;
+    transition: all 0.16s ease; white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+  .btn-primary {
+    background: var(--accent); color: #fff; flex: 1; justify-content: center;
+    box-shadow: 0 1px 2px rgba(37,99,235,0.25);
+  }
+  .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(37,99,235,0.3); }
+
+  .btn-secondary {
+    background: var(--surface); color: var(--text-mid);
+    border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .btn-secondary:hover { border-color: var(--border2); background: var(--surface2); }
+
+  .btn-download {
+    background: var(--success-light); color: var(--success);
+    border: 1px solid var(--success-border); flex: 1; justify-content: center;
+    box-shadow: 0 1px 2px rgba(22,163,74,0.1);
+  }
+  .btn-download:hover { background: #dcfce7; transform: translateY(-1px); }
+
+  /* Status bar */
+  .status-bar {
+    display: none; align-items: center; gap: 10px; padding: 12px 16px;
+    border-radius: 7px; font-size: 13px; margin-top: 14px;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text-mid);
+  }
+  .status-bar.visible { display: flex; }
+  .status-bar.error { border-color: #fca5a5; background: var(--danger-light); color: var(--danger); }
+  .status-bar.success { border-color: var(--success-border); background: var(--success-light); color: var(--success); }
+
+  .spinner {
+    width: 15px; height: 15px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-icon { font-size: 15px; flex-shrink: 0; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; text-align: center;
+  }
+  .stat-num {
+    font-family: 'Instrument Serif', serif; font-size: 36px; font-weight: 400;
+    color: var(--accent); display: block; line-height: 1; margin-bottom: 4px;
+  }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.07em; text-transform: uppercase; }
+
+  .result-section { display: none; }
+  .result-section.visible { display: block; }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 4px 0 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Comment Replacer</h1>
+    <p class="subtitle">Upload a .docx file, choose which comments to apply automatically and which to handle manually, then download the updated document.</p>
+  </header>
+
+  <!-- Step 1 -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">1</span>Upload document</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".docx">
+      <span class="drop-icon">📄</span>
+      <div class="drop-text">Drop your .docx file here</div>
+      <div class="drop-sub">or click to browse</div>
+    </div>
+    <div class="file-info" id="fileInfo">
+      <span style="font-size:20px">📝</span>
+      <span class="file-name" id="fileName">—</span>
+      <span class="file-size" id="fileSize">—</span>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="card preview-section" id="previewSection">
+    <div class="card-title">
+      <span class="step-num">2</span>
+      Review comments
+      <span class="badge" id="commentCount">0 comments</span>
+    </div>
+    <div id="previewContent"></div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">3</span>Apply replacements</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="processBtn" disabled onclick="processDoc()">⚡ Apply selected</button>
+      <button class="btn btn-secondary" onclick="resetAll()">↺ Reset</button>
+    </div>
+    <div class="status-bar" id="statusBar">
+      <div class="spinner" id="statusSpinner"></div>
+      <span class="status-icon" id="statusIcon" style="display:none"></span>
+      <span id="statusText">Processing…</span>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="card result-section" id="resultSection">
+    <div class="card-title"><span class="step-num">4</span>Results</div>
+    <div class="stats">
+      <div class="stat-item"><span class="stat-num" id="statTotal">0</span><span class="stat-label">Selected</span></div>
+      <div class="stat-item"><span class="stat-num" id="statReplaced">0</span><span class="stat-label">Replaced</span></div>
+      <div class="stat-item"><span class="stat-num" id="statSkipped">0</span><span class="stat-label">Not found</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-download" onclick="downloadResult()">⬇ Download document</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let originalFile = null;
+let parsedComments = [];
+let resultBlob = null;
+let originalFileName = '';
+let currentFilter = 'all';
+
+// ===== Upload =====
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  if (!file.name.endsWith('.docx')) { showStatus('error', '✕', 'Please upload a .docx file.'); return; }
+  originalFile = file; originalFileName = file.name;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatBytes(file.size);
+  document.getElementById('fileInfo').classList.add('visible');
+  document.getElementById('resultSection').classList.remove('visible');
+  document.getElementById('statusBar').className = 'status-bar';
+  currentFilter = 'all';
+  parseComments(file);
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ===== Parse =====
+async function parseComments(file) {
+  document.getElementById('previewSection').classList.add('visible');
+  document.getElementById('previewContent').innerHTML = `<div class="empty-state"><span class="empty-icon">⏳</span>Parsing comments…</div>`;
+
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const docXmlRaw = await zip.file('word/document.xml').async('string');
+    const commentsFile = zip.file('word/comments.xml');
+    if (!commentsFile) { renderEmpty('No comments found in this document.'); return; }
+    const commentsXmlRaw = await commentsFile.async('string');
+
+    const parser = new DOMParser();
+    const docXml = parser.parseFromString(docXmlRaw, 'application/xml');
+    const commentsXml = parser.parseFromString(commentsXmlRaw, 'application/xml');
+
+    const commentMap = {};
+    commentsXml.querySelectorAll('comment').forEach(node => {
+      const id = node.getAttribute('w:id') || node.getAttribute('id');
+      const text = Array.from(node.querySelectorAll('t')).map(t => t.textContent).join('') || node.textContent.trim();
+      commentMap[id] = text;
+    });
+
+    const raw = extractAnchorTexts(docXml, commentMap);
+    parsedComments = raw.map(c => ({
+      ...c,
+      anchorTrimmed: c.anchorText.trim(),
+      commentTrimmed: c.commentText.trim(),
+      mode: 'auto',
+    }));
+
+    renderPreview();
+    updateProcessBtn();
+
+  } catch (err) {
+    console.error(err);
+    renderEmpty('Failed to parse file: ' + err.message);
+  }
+}
+
+function extractAnchorTexts(docXml, commentMap) {
+  const body = docXml.querySelector('body');
+  if (!body) return [];
+  const results = [], openRanges = {}, rangeTexts = {}, allNodes = [];
+  function walk(n) { allNodes.push(n); for (const c of n.childNodes) walk(c); }
+  walk(body);
+  for (const node of allNodes) {
+    const ln = node.localName;
+    if (ln === 'commentRangeStart') {
+      const id = node.getAttribute('w:id') || node.getAttribute('id');
+      if (id != null) { openRanges[id] = true; rangeTexts[id] = ''; }
+    } else if (ln === 'commentRangeEnd') {
+      const id = node.getAttribute('w:id') || node.getAttribute('id');
+      if (id != null && openRanges[id]) {
+        results.push({ id, anchorText: rangeTexts[id], commentText: commentMap[id] || '' });
+        delete openRanges[id]; delete rangeTexts[id];
+      }
+    } else if (ln === 't') {
+      for (const id in openRanges) rangeTexts[id] += node.textContent;
+    }
+  }
+  const seen = new Set();
+  return results.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+}
+
+// ===== Render =====
+function renderPreview() {
+  const container = document.getElementById('previewContent');
+  if (!parsedComments.length) { renderEmpty('No comments found.'); return; }
+
+  const total = parsedComments.length;
+  const autoCount = parsedComments.filter(c => c.mode === 'auto').length;
+  const manualCount = total - autoCount;
+
+  document.getElementById('commentCount').textContent = total + (total === 1 ? ' comment' : ' comments');
+
+  const filtered = parsedComments.filter(c =>
+    currentFilter === 'auto' ? c.mode === 'auto' :
+    currentFilter === 'manual' ? c.mode === 'manual' : true
+  );
+
+  const allAuto = parsedComments.every(c => c.mode === 'auto');
+  const allManual = parsedComments.every(c => c.mode === 'manual');
+
+  let html = `
+  <div class="table-toolbar">
+    <div class="toolbar-left">
+      <label class="select-all-label">
+        <div class="cb-wrap" style="display:inline-flex">
+          <input type="checkbox" id="selectAll" ${allAuto ? 'checked' : ''} onchange="toggleSelectAll(this.checked)">
+        </div>
+        Select all
+      </label>
+    </div>
+    <div class="toolbar-right">
+      <button class="filter-btn ${currentFilter==='all'?'f-active-all':''}" onclick="setFilter('all')">All (${total})</button>
+      <button class="filter-btn ${currentFilter==='auto'?'f-active-auto':''}" onclick="setFilter('auto')">Auto (${autoCount})</button>
+      <button class="filter-btn ${currentFilter==='manual'?'f-active-manual':''}" onclick="setFilter('manual')">Manual (${manualCount})</button>
+    </div>
+  </div>
+
+  <div class="comment-table-wrap">
+  <table class="comment-table">
+    <thead><tr>
+      <th></th>
+      <th>Original text</th>
+      <th class="arrow-cell"></th>
+      <th>Comment (replace with)</th>
+      <th class="status-col">Action</th>
+    </tr></thead>
+    <tbody>`;
+
+  if (filtered.length === 0) {
+    html += `<tr><td colspan="5"><div class="empty-state" style="padding:20px">No comments in this view.</div></td></tr>`;
+  } else {
+    for (const c of filtered) {
+      const isAuto = c.mode === 'auto';
+      html += `
+      <tr class="${isAuto ? '' : 'row-manual'}">
+        <td><div class="cb-wrap"><input type="checkbox" ${isAuto ? 'checked' : ''}
+          onchange="toggleRow('${c.id}', this.checked)"></div></td>
+        <td><span class="original-text">${escHtml(c.anchorTrimmed || c.anchorText)}</span></td>
+        <td class="arrow-cell">→</td>
+        <td><span class="comment-text">${escHtml(c.commentTrimmed || c.commentText)}</span></td>
+        <td>
+          <span class="status-pill ${isAuto ? 'pill-auto' : 'pill-manual'}"
+            onclick="toggleRow('${c.id}', ${!isAuto})">
+            ${isAuto ? '✓ Auto' : '✎ Manual'}
+          </span>
+        </td>
+      </tr>`;
+    }
+  }
+
+  html += `</tbody></table></div>
+
+  <div class="selection-summary">
+    <div class="sum-item"><span class="sum-dot green"></span><span>${autoCount} auto-replaced</span></div>
+    <span class="sum-sep">·</span>
+    <div class="sum-item"><span class="sum-dot yellow"></span><span>${manualCount} manual (comments kept)</span></div>
+  </div>
+
+  <div class="info-note">
+    <strong>Auto</strong> — the original text is replaced with the comment content and the comment is removed.
+    <strong>Manual</strong> — no changes are made; the comment is preserved as-is for you to handle.
+    Click a pill or checkbox to toggle.
+  </div>`;
+
+  container.innerHTML = html;
+
+  const cb = document.getElementById('selectAll');
+  if (cb && !allAuto && !allManual) cb.indeterminate = true;
+}
+
+function renderEmpty(msg) {
+  document.getElementById('previewContent').innerHTML = `<div class="empty-state"><span class="empty-icon">💬</span>${msg}</div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===== Selection =====
+function toggleRow(id, checked) {
+  const c = parsedComments.find(x => x.id === id);
+  if (c) { c.mode = checked ? 'auto' : 'manual'; renderPreview(); updateProcessBtn(); }
+}
+function toggleSelectAll(checked) {
+  parsedComments.forEach(c => c.mode = checked ? 'auto' : 'manual');
+  renderPreview(); updateProcessBtn();
+}
+function setFilter(f) { currentFilter = f; renderPreview(); }
+function updateProcessBtn() {
+  document.getElementById('processBtn').disabled = !parsedComments.some(c => c.mode === 'auto');
+}
+
+// ===== Process =====
+async function processDoc() {
+  const toReplace = parsedComments.filter(c => c.mode === 'auto');
+  if (!originalFile || !toReplace.length) return;
+
+  showStatus('loading', '', 'Processing document…');
+  document.getElementById('processBtn').disabled = true;
+
+  try {
+    const zip = await JSZip.loadAsync(originalFile);
+    const docXmlRaw = await zip.file('word/document.xml').async('string');
+    const docDom = new DOMParser().parseFromString(docXmlRaw, 'application/xml');
+
+    let replaced = 0, skipped = 0;
+    for (const c of toReplace) {
+      replaceCommentInDom(docDom, c) ? replaced++ : skipped++;
+    }
+
+    const autoIds = new Set(toReplace.map(c => c.id));
+    removeMarkupForIds(docDom, autoIds);
+
+    zip.file('word/document.xml', new XMLSerializer().serializeToString(docDom));
+
+    if (parsedComments.every(c => c.mode === 'auto') && zip.file('word/comments.xml')) {
+      zip.file('word/comments.xml', emptyCommentsXml());
+    }
+
+    resultBlob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+
+    document.getElementById('statTotal').textContent = toReplace.length;
+    document.getElementById('statReplaced').textContent = replaced;
+    document.getElementById('statSkipped').textContent = skipped;
+    document.getElementById('resultSection').classList.add('visible');
+
+    const manualLeft = parsedComments.filter(c => c.mode === 'manual').length;
+    const parts = [`${replaced} replacement${replaced !== 1 ? 's' : ''} applied`];
+    if (skipped) parts.push(`${skipped} not found`);
+    if (manualLeft) parts.push(`${manualLeft} comment${manualLeft !== 1 ? 's' : ''} kept for manual review`);
+    showStatus('success', '✓', parts.join(' · '));
+
+  } catch (err) {
+    console.error(err);
+    showStatus('error', '✕', 'Error: ' + err.message);
+    document.getElementById('processBtn').disabled = false;
+  }
+}
+
+function replaceCommentInDom(docDom, comment) {
+  const { id, commentTrimmed } = comment;
+  let startEl = null, endEl = null;
+  for (const el of docDom.getElementsByTagNameNS('*', 'commentRangeStart'))
+    if ((el.getAttribute('w:id') || el.getAttribute('id')) === id) { startEl = el; break; }
+  for (const el of docDom.getElementsByTagNameNS('*', 'commentRangeEnd'))
+    if ((el.getAttribute('w:id') || el.getAttribute('id')) === id) { endEl = el; break; }
+  if (!startEl || !endEl) return false;
+
+  const allNodes = [];
+  function walk(n) { allNodes.push(n); for (const c of n.childNodes) walk(c); }
+  walk(docDom.querySelector('body'));
+
+  const si = allNodes.indexOf(startEl), ei = allNodes.indexOf(endEl);
+  if (si < 0 || ei < 0 || si >= ei) return false;
+
+  const tNodes = allNodes.slice(si + 1, ei).filter(n => n.localName === 't');
+  if (!tNodes.length) return false;
+
+  tNodes[0].textContent = commentTrimmed;
+  if (commentTrimmed.startsWith(' ') || commentTrimmed.endsWith(' '))
+    tNodes[0].setAttribute('xml:space', 'preserve');
+  for (let i = 1; i < tNodes.length; i++) tNodes[i].textContent = '';
+  return true;
+}
+
+function removeMarkupForIds(docDom, ids) {
+  for (const tag of ['commentRangeStart', 'commentRangeEnd', 'commentReference']) {
+    for (const el of Array.from(docDom.getElementsByTagNameNS('*', tag))) {
+      const elId = el.getAttribute('w:id') || el.getAttribute('id');
+      if (!ids.has(elId)) continue;
+      if (tag === 'commentReference') {
+        const run = el.parentNode;
+        if (run?.localName === 'r') {
+          const kids = Array.from(run.childNodes).filter(n => n.nodeType === 1);
+          if (kids.every(k => k.localName === 'rPr' || k.localName === 'commentReference')) {
+            run.parentNode?.removeChild(run); continue;
+          }
+        }
+      }
+      el.parentNode?.removeChild(el);
+    }
+  }
+}
+
+function emptyCommentsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:comments>`;
+}
+
+// ===== Download =====
+function downloadResult() {
+  if (!resultBlob) return;
+  const url = URL.createObjectURL(resultBlob);
+  Object.assign(document.createElement('a'), {
+    href: url, download: originalFileName.replace(/\.docx$/i, '') + '_replaced.docx'
+  }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ===== Status =====
+function showStatus(type, icon, text) {
+  const bar = document.getElementById('statusBar');
+  bar.className = 'status-bar visible';
+  document.getElementById('statusText').textContent = text;
+  const spinner = document.getElementById('statusSpinner');
+  const iconEl = document.getElementById('statusIcon');
+  if (type === 'loading') {
+    spinner.style.display = ''; iconEl.style.display = 'none';
+    bar.classList.remove('error', 'success');
+  } else {
+    spinner.style.display = 'none'; iconEl.style.display = '';
+    iconEl.textContent = icon;
+    bar.classList.toggle('error', type === 'error');
+    bar.classList.toggle('success', type === 'success');
+  }
+}
+
+// ===== Reset =====
+function resetAll() {
+  originalFile = null; parsedComments = []; resultBlob = null;
+  originalFileName = ''; currentFilter = 'all';
+  fileInput.value = '';
+  document.getElementById('fileInfo').classList.remove('visible');
+  document.getElementById('fileName').textContent = '—';
+  document.getElementById('fileSize').textContent = '—';
+  document.getElementById('previewSection').classList.remove('visible');
+  document.getElementById('previewContent').innerHTML = '';
+  document.getElementById('resultSection').classList.remove('visible');
+  document.getElementById('statusBar').className = 'status-bar';
+  document.getElementById('processBtn').disabled = true;
+}
+</script>
+</body>
+</html>
